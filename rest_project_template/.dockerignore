@@ -1,0 +1,19 @@
+# root files
+.env
+.coverage
+**/.vault_pass*
+circle.yml
+tox.ini
+docker-compose.yml
+**/*.sqlite3
+
+# folders
+.circleci
+.tox
+**/media/
+deploy/
+app_template/
+.DS_STORE
+
+# other files
+*.xml

@@ -1,0 +1,8 @@
+---
+
+- hosts: all
+  tasks:
+    - name: Log out from DockerHub
+      docker_login:
+        state: absent
+        email: "{{ docker_email }}"

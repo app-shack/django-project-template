@@ -1,0 +1,17 @@
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+
+class {{ camel_case_app_name }}EndpointTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Setup data for all tests in this test case
+        super({{ camel_case_app_name }}, cls).setUpTestData()
+
+    def setUp(self):
+        super().setUp()
+
+    def tearDown(self):
+        super().tearDown()
+
+    # Create your view tests here.
