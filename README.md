@@ -13,7 +13,7 @@ isn't taken into consideration. Make sure an environment is active before the
 following command is executed, if such a setup is intended.
 
 ```
-
+bash <(curl -s https://raw.githubusercontent.com/app-shack/django-project-template/v1.0.0/init.sh)
 ```
 
 Running the command in a terminal will setup a new Django project and provide

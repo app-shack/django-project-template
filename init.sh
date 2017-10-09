@@ -6,7 +6,15 @@ DEFAULT_DEPS+="djangorestframework "
 DEFAULT_DEPS+="raven "
 DEFAULT_DEPS+="flake8 "
 
-echo "wget https://github.com/app-shack/django-app-template/releases/download/$VERSION/django-app-template.tar.gz"
+echo -en "Collecting resources\n"
+
+wget -q -O django-project-template.tar.gz https://github.com/app-shack/django-project-template/releases/download/v1.0.0/django-project-template.tar.gz
+
+temp=`mktemp -d 2>/dev/null || mktemp -d -t 'dpr'`
+tar -xzf django-project-template.tar.gz -C "$temp" --exclude "*/init.sh" --exclude ".gitignore" && \
+    mv -n "$temp"/*/* . && \
+    rm -r "$temp"
+rm -f django-project-template.tar.gz
 
 read -p "Enter new project name: " project_name
 
@@ -24,4 +32,6 @@ all_hosts_path=$project_name/deploy/inventories/group_vars/all.yml
 echo "docker_repo: \"{{ myrepo }}/$project_name\"" >> $all_hosts_path
 echo "docker_image: \"{{ docker_repo }}:{{ docker_image_tag }}\"" >> $all_hosts_path
 
-cp -r app_template $project_name/app_template
+mv app_template $project_name/app_template
+
+rm -r rest_project_template
