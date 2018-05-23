@@ -1,0 +1,30 @@
+# NOTE: This docker-compose is for local usage only. The live setup is in deploy/deploy.yml.
+
+version: '3'
+
+volumes:
+  dbdata:
+  static_files:
+
+services:
+  postgres:
+    image: postgres:9.6-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecret
+    volumes:
+      - "dbdata:/var/lib/postgresql/data"
+
+  django:
+    build: .
+    container_name: django
+    restart: always
+    depends_on:
+      - postgres
+    env_file: .env
+    volumes:
+      - "static_files:/var/www/static/"
+      - "./src:/app"
+    command: "python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"

@@ -1,0 +1,90 @@
+---
+
+- name: Setup Nginx reverse proxy
+  hosts: dev,prod
+  tasks:
+    - file:
+        path: /etc/nginx/{{ item }}
+        state: directory
+        recurse: yes
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+      with_items:
+        - certs
+        - dhparam
+        - vhost.d
+        - templates
+      become: yes
+
+    - name: Sync Nginx info
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - { src: nginx/nginx.tmpl, dest: /etc/nginx/templates/nginx.tmpl }
+        - { src: nginx/vhost.d/, dest: /etc/nginx/vhost.d/ }
+
+    - name: Generate default.crt and default.key
+      shell: >
+        openssl req -x509 -nodes
+        -days 3650
+        -subj "/C=SE/ST=./L=./O=./CN=*"
+        -newkey rsa:2048
+        -keyout /etc/nginx/certs/default.key
+        -out /etc/nginx/certs/default.crt
+      args:
+        creates: /etc/nginx/certs/default.crt
+
+    - name: Generate default Diffie Hellman param
+      shell: openssl dhparam -out /etc/nginx/dhparam/dhparam.pem 2048
+      args:
+        creates: /etc/nginx/dhparam/dhparam.pem
+
+    - name: Start official image
+      docker_container:
+        name: nginx
+        image: nginx
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - "static_files:{{ uwsgi_env.STATIC_ROOT }}:ro"
+          - "media_files:{{ uwsgi_env.MEDIA_ROOT }}:ro"
+          - "nginx_confd:/etc/nginx/conf.d"
+          - "/etc/nginx/vhost.d:/etc/nginx/vhost.d"
+          - "/etc/nginx/certs/:/etc/nginx/certs/:ro"
+          - "/etc/nginx/dhparam/dhparam.pem:/etc/nginx/dhparam/dhparam.pem:ro"
+        networks:
+          - name: "{{ docker_network_name }}"
+        env:
+          NGINX_PROXY_CONTAINER: nginx
+        restart_policy: unless-stopped
+      tags:
+        - deploy
+
+    - name: Start docker-gen container
+      docker_container:
+        name: nginx-gen
+        image: jwilder/docker-gen
+        volumes:
+          - "nginx_confd:/etc/nginx/conf.d"
+          - "/etc/nginx/vhost.d:/etc/nginx/vhost.d"
+          - "/etc/nginx/certs/:/etc/nginx/certs/:ro"
+          - "/etc/nginx/templates/nginx.tmpl:/etc/nginx/nginx.tmpl:ro"
+          - "/etc/nginx/dhparam/dhparam.pem:/etc/nginx/dhparam/dhparam.pem:ro"
+          - "/var/run/docker.sock:/tmp/docker.sock:ro"
+        env:
+          NGINX_DOCKER_GEN_CONTAINER: nginx-gen
+        restart_policy: unless-stopped
+        command: [
+          "-notify-sighup",
+          "nginx",
+          "-watch",
+          "-wait 5s:30s",
+          "/etc/nginx/nginx.tmpl",
+          "/etc/nginx/conf.d/default.conf"
+        ]
+        networks:
+          - name: "{{ docker_network_name }}"
+      tags:
+        - deploy

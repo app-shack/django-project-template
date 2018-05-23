@@ -1,0 +1,98 @@
+---
+
+- import_playbook: docker-login.yml tags=always
+
+- name: docker-network
+  hosts: all
+  tasks:
+    - name: Create Docker network
+      docker_network:
+        name: "{{ docker_network_name }}"
+
+- name: postgres
+  hosts: dev,prod
+  tasks:
+    - name: Start postgres
+      docker_container:
+        name: postgres
+        image: postgres:9.6-alpine
+        env:
+          POSTGRES_USER: "{{ DB_USER }}"
+          POSTGRES_PASSWORD: "{{ DB_PASSWORD }}"
+        volumes:
+          - "postgres_data:/var/lib/postgresql/data"
+        ports:
+          - "127.0.0.1:5432:5432"
+        networks:
+          - name: "{{ docker_network_name }}"
+      register: postgres
+      tags:
+        - deploy
+
+    - name: Wait for postgres
+      when: postgres|changed
+      wait_for:
+        port: 5432
+        delay: 5
+        connect_timeout: 2
+        timeout: 20
+      tags:
+        - deploy
+
+- name: django-uwsgi
+  hosts: dev,prod
+  tasks:
+    - name: Start {{ docker_name }} container
+      docker_container:
+        name: "{{ docker_name }}"
+        image: "{{ docker_image }}"
+        volumes:
+          - "static_files:{{ uwsgi_env.STATIC_ROOT }}"
+          - "media_files:{{ uwsgi_env.MEDIA_ROOT }}"
+        pull: yes
+        restart: yes
+        env:
+          "{{ uwsgi_env }}"
+        networks:
+          - name: "{{ docker_network_name }}"
+      register: uwsgi_image
+      tags:
+        - deploy
+        - bump
+
+    - name: Migrate database
+      when: uwsgi_image|changed and run_migrate|default(true)|bool == true
+      docker_container:
+        name: manage_migrate
+        image: "{{ docker_image }}"
+        command: python manage.py migrate --noinput
+        env:
+          "{{ internal_env }}"
+        cleanup: yes
+        detach: no
+        networks:
+          - name: "{{ docker_network_name }}"
+      tags:
+        - deploy
+        - bump
+
+    - name: Collect static files
+      docker_container:
+        name: app-collectstatic
+        image: "{{ docker_image }}"
+        command: python manage.py collectstatic --noinput
+        cleanup: yes
+        detach: no
+        env:
+          "{{ internal_env }}"
+        volumes:
+          - "static_files:{{ internal_env.STATIC_ROOT }}"
+        networks:
+          - name: "{{ docker_network_name }}"
+      changed_when: false
+      tags:
+        - deploy
+        - bump
+
+- import_playbook: nginx.yml tags=deploy
+- import_playbook: docker-logout.yml tags=always

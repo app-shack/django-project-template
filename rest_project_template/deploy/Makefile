@@ -7,7 +7,7 @@
 ##
 
 docker-creds?= "@~/.docker-extra-vars.yml"
-playbook	?= playbook
+playbook	?= deploy
 env			?= "inventories/hosts"
 pass-file	?= .vault_pass.txt
 opts		:= $(opts) --extra-vars $(docker-creds)

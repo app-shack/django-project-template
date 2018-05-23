@@ -1,0 +1,65 @@
+---
+
+- name: Install kernel extras
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+    cache_valid_time: 600
+  with_items:
+    - "apt-transport-https"
+    - "ca-certificates"
+    - "curl"
+    - "software-properties-common"
+
+- name: Add gpg key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+    state: present
+
+- name: Add apt repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    update_cache: yes
+    state: present
+
+- set_fact:
+    install_version: "{% if docker_version is defined %}docker-ce={{ docker_version }}{% else %}docker-ce{% endif %}"
+
+- name: Install docker
+  apt:
+    name: docker-ce
+    state: present
+    update_cache: yes
+    cache_valid_time: 600
+
+- name: Add given user to the docker group
+  user:
+    name: "{{ docker_user | default('ubuntu') }}"
+    groups: docker
+    append: yes
+
+- name: Install pip
+  apt:
+    pkg: "{{ item }}"
+    state: latest
+    update_cache: yes
+    cache_valid_time: 600
+  with_items:
+    - python-dev
+    - python-pip
+
+- name: Upgrade pip
+  pip:
+    name: pip
+    state: latest
+
+- name: Install docker-py
+  pip:
+    name: docker-py
+
+- name: Start docker
+  service:
+    name: docker
+    state: started

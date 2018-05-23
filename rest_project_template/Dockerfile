@@ -1,18 +1,21 @@
-FROM python:3.5
+FROM python:3.6
 ENV PYTHONBUFFERED 1
 
-RUN apt-get update
 RUN pip install uwsgi
+ADD ./requirements.txt /app/requirements.txt
+RUN pip install -r /app/requirements.txt
 
 ADD uwsgi.ini /etc/uwsgi/app.ini
-ADD . /app
 
-RUN pip install -r /app/requirements/base.txt
+COPY docker/bin/*.sh /bin/
+RUN chmod +x /bin/wait-for-postgres.sh
+
+ADD ./src /app
+
+ARG SOURCE_COMMIT
+ENV SENTRY_RELEASE $SOURCE_COMMIT
+
 WORKDIR /app
-RUN STATIC_ROOT=/var/www/static python src/manage.py collectstatic --noinput
-
-VOLUME /var/www/static
-VOLUME /var/www/media
 
 EXPOSE 3030 8000
 

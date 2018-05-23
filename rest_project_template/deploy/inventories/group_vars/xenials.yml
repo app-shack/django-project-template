@@ -1,8 +1,0 @@
----
-
-base_packages:
-  - python
-  - python-pip
-pip_exec: pip
-pip_packages:
-  - pip

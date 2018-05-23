@@ -1,3 +1,4 @@
+src=.
 
 .PHONY: app
 app: mandatory-name-arg ## make app [name=<APP NAME>] # Create a new django app called: 'name'
@@ -8,11 +9,67 @@ EXCLUDES = 'migrations,settings,media,static,templates,manage.py,mocks.py'
 lint: ## make lint # PEP8 syntax check
 	@flake8 --exclude=$(EXCLUDES) src/
 
+opts	:= $(opts)
+
+ifeq ("$(detach)", "yes")
+	opts := $(opts) -d
+endif
+ifeq ("$(build)", "yes")
+	opts := $(opts) --build
+endif
+
+ifneq ("$(test-path)", "")
+	cargs := $(test-path)
+else
+	cargs := $(src)
+endif
+ifeq ("$(tag)", "")
+	cargs := $(cargs) --exclude-tag=integration
+else ifeq ("$(tag)", "all")
+	cargs := $(cargs)
+else
+	cargs := $(cargs) --tag=$(tag)
+endif
+ifeq ("$(keepdb)", "yes")
+	cargs := $(cargs) --keepdb
+endif
+
+.PHONY: test
+test: ## make test [detach=no] [keepdb=no] [test-path=.] # Run unit tests
+	@docker-compose run \
+		--rm \
+		-e DJANGO_SETTINGS_MODULE=settings.test \
+		$(opts) \
+		django \
+		python $(src)/manage.py test -t $(src) $(cargs)
+
+.PHONY: ci-test
+ci-test: ## make ci-test # Run unit tests as in CI
+	@docker-compose -f .circleci/docker-compose.test.yml run \
+		--rm \
+		--name wait_for_pg \
+		--entrypoint sh \
+		-e PGPASSWORD=password \
+		django \
+		-c 'sh /bin/wait-for-postgres.sh postgres test'
+	@docker-compose -f .circleci/docker-compose.test.yml run \
+		--name ci-test \
+		--entrypoint sh \
+		-e DJANGO_SETTINGS_MODULE=settings.test \
+		django \
+		-c 'coverage run $(src)/manage.py test -t $(src) && coverage xml'
+	@docker cp ci-test:/app/coverage.xml ./coverage.xml
+
+.PHONY: fg
+fg: ## make fg # Start a container session for project
+	@docker-compose run --rm --name fg -w /app --entrypoint sh django
+
+
 docker-repo ?= mydocker
 app-name ?= app
-src ?= $(app-name)
 target-image ?= $docker-repo/$(app-name)
 tag ?= latest
+
 
 .PHONY: build
 build: ## make build [app-name=app] # Create a docker image from the projects Dockerfile

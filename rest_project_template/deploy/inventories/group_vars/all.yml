@@ -1,3 +1,8 @@
 ---
 
+docker_user: ubuntu
 docker_name: django-uwsgi
+docker_repo: myorg/myrepo
+docker_image: "{{ docker_repo }}:{{ docker_image_tag }}"
+docker_version: 18.03.0~ce-0~ubuntu
+docker_network_name: django_docker_network
