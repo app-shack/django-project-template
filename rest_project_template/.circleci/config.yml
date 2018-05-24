@@ -1,0 +1,217 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/${CIRCLE_PROJECT_REPONAME}
+    docker:
+      - image: circleci/python:3.6.4
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.11.0-ce
+
+      - restore_cache:
+          keys:
+            - docker-{{ .Environment.CIRCLE_SHA1 }}
+            - docker
+          paths:
+            - ~/caches/
+
+      - restore_cache:
+          keys:
+            - venv-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - ~/${CIRCLE_PROJECT_REPONAME}/venv/
+
+      - run:
+          name: Load Docker image layer cache
+          command: |
+            set +o pipefail
+            docker load -i ~/caches/${CIRCLE_PROJECT_REPONAME}.tar | true
+
+      - run:
+          name: Install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install \
+              docker-compose==1.18.0 \
+              codecov
+      - run:
+          name: Build application Docker image
+          command: |
+            docker build \
+              --build-arg SOURCE_COMMIT=${CIRCLE_SHA1} \
+              --cache-from=django \
+              -t django:latest \
+              -t circleci_django \
+              .
+      - run:
+          name: Save Docker image layer cache
+          command: |
+            mkdir -p ~/caches
+            docker save -o ~/caches/${CIRCLE_PROJECT_REPONAME}.tar \
+              django:latest \
+              circleci_django
+
+      - save_cache:
+          key: docker-{{ .Environment.CIRCLE_SHA1 }}-{{ epoch }}
+          paths:
+            - ~/caches/
+
+      - save_cache:
+          key: venv-{{ .Environment.CIRCLE_SHA1 }}-{{ epoch }}
+          paths:
+            - venv/
+
+  unittest:
+    working_directory: ~/${CIRCLE_PROJECT_REPONAME}
+    docker:
+      - image: circleci/python:3.6.4
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.11.0-ce
+
+      - restore_cache:
+          keys:
+            - docker-{{ .Environment.CIRCLE_SHA1 }}
+            - docker
+
+      - restore_cache:
+          keys:
+            - venv-{{ .Environment.CIRCLE_SHA1 }}
+
+      - run:
+          name: Load Docker image layer cache
+          command: |
+            set +o pipefail
+            docker load -i ~/caches/${CIRCLE_PROJECT_REPONAME}.tar | true
+      - run:
+          name: Install dependencies
+          command: |
+            sudo apt-get install build-essential
+      - run:
+          name: Run tests
+          command: |
+            . venv/bin/activate
+            make ci-test
+
+      - persist_to_workspace:
+          root: ~/${CIRCLE_PROJECT_REPONAME}/
+          paths:
+            - coverage.xml
+
+  codecov:
+    working_directory: ~/${CIRCLE_PROJECT_REPONAME}
+    docker:
+      - image: circleci/python:3.6.4
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - venv-{{ .Environment.CIRCLE_SHA1 }}
+
+      - attach_workspace:
+          at: ~/${CIRCLE_PROJECT_REPONAME}
+
+      - run:
+          name: Upload coverage report
+          command: |
+            . venv/bin/activate
+            codecov -n Unittests -F unittests
+
+      - store_artifacts:
+          path: coverage.xml
+          destination: coverage-reports
+
+  publish_latest_image:
+    working_directory: ~/${CIRCLE_PROJECT_REPONAME}
+    docker:
+      - image: circleci/python:3.6.4
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.11.0-ce
+
+      - restore_cache:
+          keys:
+            - docker-{{ .Environment.CIRCLE_SHA1 }}
+            - docker
+
+      - restore_cache:
+          keys:
+            - venv-{{ .Environment.CIRCLE_SHA1 }}
+
+      - run:
+          name: Load Docker image layer cache
+          command: |
+            set +o pipefail
+            docker load -i ~/caches/${CIRCLE_PROJECT_REPONAME}.tar | true
+      - run:
+          name: Publish images to registry
+          command: |
+            . venv/bin/activate
+            echo "implement pushing latest image"
+
+  publish_release_image:
+    working_directory: ~/${CIRCLE_PROJECT_REPONAME}
+    docker:
+      - image: circleci/python:3.6.4
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.11.0-ce
+
+      - restore_cache:
+          keys:
+            - docker-{{ .Environment.CIRCLE_SHA1 }}
+            - docker
+
+      - restore_cache:
+          keys:
+            - venv-{{ .Environment.CIRCLE_SHA1 }}
+
+      - run:
+          name: Load Docker image layer cache
+          command: |
+            set +o pipefail
+            docker load -i ~/caches/${CIRCLE_PROJECT_REPONAME}.tar | true
+      - run:
+          name: Publish images to registry
+          command: |
+            . venv/bin/activate
+            echo "implement pushing ${CIRCLE_TAG} image"
+
+workflows:
+  version: 2
+  testing:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /release-[0-9]+/
+      - unittest:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /release-[0-9]+/
+      - codecov:
+          requires:
+            - unittest
+      - publish_latest_image:
+          requires:
+            - unittest
+          filters:
+            branches:
+              only:
+                - master
+                - develop
+      - publish_release_image:
+          requires:
+            - unittest
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /release-[0-9]+/

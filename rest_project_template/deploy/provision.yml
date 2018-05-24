@@ -1,6 +1,7 @@
 ---
 
-- hosts: xenials
+- name: install python2
+  hosts: all
   become_user: root
   become: yes
   vars:
@@ -9,12 +10,20 @@
     - name: Install base packages
       apt: name={{ item }} update_cache=yes
       with_items:
-        "{{ base_packages }}"
+        - python
+        - python-pip
 
     - name: Install pip requirements
       pip:
         name: "{{ item }}"
         state: latest
-        executable: "{{ pip_exec }}"
+        executable: pip
       with_items:
-        "{{ pip_packages }}"
+        - pip
+
+- name: install docker
+  hosts: all
+  become_user: root
+  become: yes
+  roles:
+    - ansible-docker-role

@@ -1,7 +1,0 @@
----
-
-- include: docker-login.yml tags=always
-
-# Insert deploy tasks here.
-
-- include: docker-logout.yml tags=always

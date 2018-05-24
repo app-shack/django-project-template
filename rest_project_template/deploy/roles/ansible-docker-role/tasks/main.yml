@@ -1,0 +1,7 @@
+---
+
+- import_tasks: install.yml
+  become: yes
+  become_user: root
+  tags:
+    - install-docker

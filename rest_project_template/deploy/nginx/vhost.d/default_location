@@ -1,0 +1,7 @@
+location /static/ {
+    alias /var/www/static/;
+}
+
+location /media/ {
+    alias /var/www/media/;
+}

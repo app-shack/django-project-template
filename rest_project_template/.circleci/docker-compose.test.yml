@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:9.6-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: password
+
+  django:
+    build:
+      context: ..
+    container_name: django
+    depends_on:
+      - postgres
+    environment:
+      DJANGO_DB: postgres://test:password@postgres:5432/test/
+      DEBUG: "False"
