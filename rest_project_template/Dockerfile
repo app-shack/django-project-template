@@ -1,6 +1,9 @@
 FROM python:3.6
 ENV PYTHONBUFFERED 1
 
+RUN apt-get update
+RUN apt-get install -y postgresql-client
+
 RUN pip install uwsgi
 ADD ./requirements.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt
