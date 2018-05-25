@@ -2,7 +2,7 @@ set -e +o pipefail
 
 echo -en "Collecting resources\n"
 
-wget -q -O django-project-template.tar.gz https://github.com/app-shack/django-project-template/releases/download/v1.0.0/django-project-template.tar.gz
+wget -q -O django-project-template.tar.gz https://github.com/app-shack/django-project-template/releases/download/v1.1.1/django-project-template.tar.gz
 
 temp=`mktemp -d 2>/dev/null || mktemp -d -t 'dpr'`
 tar -xzf django-project-template.tar.gz -C "$temp" --exclude "*/init.sh" --exclude ".gitignore" && \
